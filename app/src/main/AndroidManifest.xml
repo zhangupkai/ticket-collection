@@ -39,6 +39,29 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        
+        <!-- 小组件配置Activity -->
+        <activity
+            android:name=".widget.TicketWidgetConfigureActivity"
+            android:exported="false"
+            android:theme="@style/Theme.MyApplication">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
+            </intent-filter>
+        </activity>
+        
+        <!-- 桌面小组件 -->
+        <receiver
+            android:name=".widget.TicketWidget"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/ticket_widget_info" />
+        </receiver>
+        
     </application>
 
 </manifest>

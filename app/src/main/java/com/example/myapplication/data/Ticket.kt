@@ -12,6 +12,8 @@ data class Ticket(
     val seatNumber: String = "",
     val passengerName: String = "",
     val idNumber: String = "",
-    val createdAt: Long = System.currentTimeMillis(),
-    val imagePath: String? = null
+    val departureTime: String = "",
+    val gate: String = "",
+    val seatType: String = "",
+    val createdAt: Long = System.currentTimeMillis()
 ) 

@@ -31,7 +31,7 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun TicketApp() {
     val navController = rememberNavController()
-    var selectedTab by remember { mutableStateOf(0) }
+    var selectedTab by remember { mutableStateOf(1) }
     
     Scaffold(
         modifier = Modifier.fillMaxSize(),
@@ -78,7 +78,7 @@ fun TicketApp() {
     ) { innerPadding ->
         NavHost(
             navController = navController,
-            startDestination = "add_ticket",
+            startDestination = "ticket_collection",
             modifier = Modifier.padding(innerPadding)
         ) {
             composable("add_ticket") {

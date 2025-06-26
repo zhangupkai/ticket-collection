@@ -15,7 +15,10 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -26,6 +29,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -88,6 +92,11 @@ fun TicketCollectionScreen(navController: NavController) {
                         },
                         onShare = { imagePath ->
                             shareTicket(context, imagePath, shareLauncher)
+                        },
+                        onEdit = { updatedTicket ->
+                            repository.updateTicket(updatedTicket)
+                            tickets = repository.getAllTickets()
+                            Toast.makeText(context, "车票已更新", Toast.LENGTH_SHORT).show()
                         }
                     )
                 }
@@ -102,10 +111,14 @@ fun TicketCard(
     ticket: Ticket,
     repository: TicketRepository,
     onDelete: () -> Unit,
-    onShare: (String) -> Unit
+    onShare: (String) -> Unit,
+    onEdit: (Ticket) -> Unit
 ) {
+    val context = LocalContext.current
     var showImage by remember { mutableStateOf(false) }
     var ticketImage by remember { mutableStateOf<Bitmap?>(null) }
+    var showEditDialog by remember { mutableStateOf(false) }
+    var showDeleteDialog by remember { mutableStateOf(false) }
     
     Card(
         modifier = Modifier
@@ -137,11 +150,23 @@ fun TicketCard(
                         style = MaterialTheme.typography.bodyMedium
                     )
                     Text(
+                        text = "发车时间: ${ticket.departureTime}",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Text(
                         text = "乘客: ${ticket.passengerName}",
                         style = MaterialTheme.typography.bodyMedium
                     )
                     Text(
                         text = "座位: ${ticket.seatNumber} | 票价: ¥${ticket.price}",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Text(
+                        text = "座席: ${ticket.seatType}",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Text(
+                        text = "检票口: ${ticket.gate}",
                         style = MaterialTheme.typography.bodyMedium
                     )
                 }
@@ -150,17 +175,16 @@ fun TicketCard(
                 Column {
                     Button(
                         onClick = {
-                            if (ticket.imagePath != null) {
-                                onShare(ticket.imagePath)
-                            } else {
-                                // 重新生成图片
-                                ticketImage = repository.generateTicketImage(ticket)
-                                if (ticketImage != null) {
-                                    val newImagePath = repository.saveTicketImage(ticket)
-                                    if (newImagePath != null) {
-                                        onShare(newImagePath)
-                                    }
+                            // 直接生成图片并分享
+                            ticketImage = repository.generateTicketImage(ticket)
+                            if (ticketImage != null) {
+                                // 创建临时文件进行分享
+                                val tempFile = File.createTempFile("ticket_share_", ".png", context.cacheDir)
+                                tempFile.deleteOnExit()
+                                tempFile.outputStream().use { out ->
+                                    ticketImage!!.compress(Bitmap.CompressFormat.PNG, 100, out)
                                 }
+                                onShare(tempFile.absolutePath)
                             }
                         },
                         modifier = Modifier.padding(bottom = 4.dp)
@@ -169,7 +193,20 @@ fun TicketCard(
                     }
                     
                     Button(
-                        onClick = onDelete
+                        onClick = { showEditDialog = true },
+                        modifier = Modifier.padding(bottom = 4.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFF2196F3)
+                        )
+                    ) {
+                        Text("编辑")
+                    }
+                    
+                    Button(
+                        onClick = { showDeleteDialog = true },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color.Red
+                        )
                     ) {
                         Text("删除")
                     }
@@ -179,16 +216,8 @@ fun TicketCard(
             // 查看图片按钮
             Button(
                 onClick = {
-                    if (ticket.imagePath != null) {
-                        val file = File(ticket.imagePath)
-                        if (file.exists()) {
-                            ticketImage = BitmapFactory.decodeFile(ticket.imagePath)
-                        } else {
-                            ticketImage = repository.generateTicketImage(ticket)
-                        }
-                    } else {
-                        ticketImage = repository.generateTicketImage(ticket)
-                    }
+                    // 直接生成图片
+                    ticketImage = repository.generateTicketImage(ticket)
                     showImage = !showImage
                 },
                 modifier = Modifier
@@ -218,6 +247,49 @@ fun TicketCard(
                 }
             }
         }
+    }
+    
+    // 编辑对话框
+    if (showEditDialog) {
+        EditTicketDialog(
+            ticket = ticket,
+            onDismiss = { showEditDialog = false },
+            onSave = { updatedTicket ->
+                onEdit(updatedTicket)
+                showEditDialog = false
+            }
+        )
+    }
+    
+    // 删除确认对话框
+    if (showDeleteDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog = false },
+            title = { Text("确认删除") },
+            text = { 
+                Text("确定要删除这张车票吗？\n\n${ticket.departure} → ${ticket.destination}\n车次: ${ticket.trainNumber}\n日期: ${ticket.date}\n乘客: ${ticket.passengerName}") 
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        onDelete()
+                        showDeleteDialog = false
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color.Red
+                    )
+                ) {
+                    Text("删除")
+                }
+            },
+            dismissButton = {
+                Button(
+                    onClick = { showDeleteDialog = false }
+                ) {
+                    Text("取消")
+                }
+            }
+        )
     }
 }
 
@@ -308,7 +380,8 @@ fun TrainTicketView(ticket: Ticket, modifier: Modifier = Modifier) {
                 Modifier.fillMaxWidth().padding(top = 8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("${ticket.date} 18:57开", fontSize = 20.sp)
+                val departureTimeText = if (ticket.departureTime.isNotBlank()) "${ticket.date} ${ticket.departureTime}开" else "${ticket.date} 18:57开"
+                Text(departureTimeText, fontSize = 20.sp)
                 Spacer(Modifier.weight(1f))
                 Text("${ticket.seatNumber}", fontSize = 18.sp)
                 Spacer(Modifier.weight(1f))
@@ -316,9 +389,11 @@ fun TrainTicketView(ticket: Ticket, modifier: Modifier = Modifier) {
             }
             // 其他信息
             Row(Modifier.fillMaxWidth().padding(top = 8.dp)) {
-                Text("二等座始发改签", fontSize = 16.sp, color = Color.DarkGray)
+                val seatTypeText = if (ticket.seatType.isNotBlank()) ticket.seatType else "二等座"
+                Text(seatTypeText, fontSize = 16.sp, color = Color.DarkGray)
                 Spacer(Modifier.weight(1f))
-                Text("检票:18B", fontSize = 16.sp, color = Color.DarkGray)
+                val gateText = if (ticket.gate.isNotBlank()) "检票:${ticket.gate}" else "检票:18B"
+                Text(gateText, fontSize = 16.sp, color = Color.DarkGray)
             }
             Spacer(Modifier.height(8.dp))
             Row(Modifier.fillMaxWidth()) {
@@ -326,21 +401,6 @@ fun TrainTicketView(ticket: Ticket, modifier: Modifier = Modifier) {
                     Text("仅供报销使用", fontSize = 14.sp, color = Color.Gray)
                     Text("${ticket.idNumber.take(6)}****${ticket.idNumber.takeLast(4)} ${ticket.passengerName}", fontSize = 14.sp, color = Color.Gray)
                 }
-            }
-            Spacer(Modifier.weight(1f))
-            // 底部蓝色条
-            Box(
-                Modifier
-                    .fillMaxWidth()
-                    .height(32.dp)
-                    .background(Color(0xFF6EC6FF), RoundedCornerShape(bottomStart = 16.dp, bottomEnd = 16.dp))
-            ) {
-                Text(
-                    text = ticket.id.take(20),
-                    color = Color.White,
-                    fontSize = 14.sp,
-                    modifier = Modifier.align(Alignment.CenterStart).padding(start = 12.dp)
-                )
             }
         }
     }
@@ -352,4 +412,180 @@ fun getPinyin(chinese: String): String {
         "北京南" -> "Beijingnan"
         else -> chinese
     }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun EditTicketDialog(
+    ticket: Ticket,
+    onDismiss: () -> Unit,
+    onSave: (Ticket) -> Unit
+) {
+    var trainNumber by remember { mutableStateOf(ticket.trainNumber) }
+    var date by remember { mutableStateOf(ticket.date) }
+    var departureTime by remember { mutableStateOf(ticket.departureTime) }
+    var departure by remember { mutableStateOf(ticket.departure) }
+    var destination by remember { mutableStateOf(ticket.destination) }
+    var price by remember { mutableStateOf(ticket.price) }
+    var seatType by remember { mutableStateOf(ticket.seatType) }
+    var seatNumber by remember { mutableStateOf(ticket.seatNumber) }
+    var gate by remember { mutableStateOf(ticket.gate) }
+    var passengerName by remember { mutableStateOf(ticket.passengerName) }
+    var idNumber by remember { mutableStateOf(ticket.idNumber) }
+    
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("编辑车票信息") },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+            ) {
+                OutlinedTextField(
+                    value = trainNumber,
+                    onValueChange = { trainNumber = it },
+                    label = { Text("车次") },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 8.dp),
+                    singleLine = true
+                )
+                
+                OutlinedTextField(
+                    value = date,
+                    onValueChange = { date = it },
+                    label = { Text("日期 (YYYY-MM-DD)") },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 8.dp),
+                    singleLine = true
+                )
+                
+                OutlinedTextField(
+                    value = departureTime,
+                    onValueChange = { departureTime = it },
+                    label = { Text("发车时间 (HH:MM)") },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 8.dp),
+                    singleLine = true
+                )
+                
+                OutlinedTextField(
+                    value = departure,
+                    onValueChange = { departure = it },
+                    label = { Text("出发地") },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 8.dp),
+                    singleLine = true
+                )
+                
+                OutlinedTextField(
+                    value = destination,
+                    onValueChange = { destination = it },
+                    label = { Text("目的地") },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 8.dp),
+                    singleLine = true
+                )
+                
+                OutlinedTextField(
+                    value = price,
+                    onValueChange = { price = it },
+                    label = { Text("票价") },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 8.dp),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    singleLine = true
+                )
+                
+                OutlinedTextField(
+                    value = seatType,
+                    onValueChange = { seatType = it },
+                    label = { Text("座席类型") },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 8.dp),
+                    singleLine = true
+                )
+                
+                OutlinedTextField(
+                    value = seatNumber,
+                    onValueChange = { seatNumber = it },
+                    label = { Text("座位号") },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 8.dp),
+                    singleLine = true
+                )
+                
+                OutlinedTextField(
+                    value = gate,
+                    onValueChange = { gate = it },
+                    label = { Text("检票口") },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 8.dp),
+                    singleLine = true
+                )
+                
+                OutlinedTextField(
+                    value = passengerName,
+                    onValueChange = { passengerName = it },
+                    label = { Text("乘客姓名") },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 8.dp),
+                    singleLine = true
+                )
+                
+                OutlinedTextField(
+                    value = idNumber,
+                    onValueChange = { idNumber = it },
+                    label = { Text("身份证号") },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 8.dp),
+                    singleLine = true
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    if (trainNumber.isNotBlank() && date.isNotBlank() && 
+                        departure.isNotBlank() && destination.isNotBlank() &&
+                        price.isNotBlank() && seatType.isNotBlank() && seatNumber.isNotBlank() &&
+                        passengerName.isNotBlank() && idNumber.isNotBlank()) {
+                        
+                        val updatedTicket = ticket.copy(
+                            trainNumber = trainNumber,
+                            date = date,
+                            departureTime = departureTime,
+                            departure = departure,
+                            destination = destination,
+                            price = price,
+                            seatType = seatType,
+                            seatNumber = seatNumber,
+                            gate = gate,
+                            passengerName = passengerName,
+                            idNumber = idNumber
+                        )
+                        onSave(updatedTicket)
+                    }
+                }
+            ) {
+                Text("保存")
+            }
+        },
+        dismissButton = {
+            Button(onClick = onDismiss) {
+                Text("取消")
+            }
+        }
+    )
 } 

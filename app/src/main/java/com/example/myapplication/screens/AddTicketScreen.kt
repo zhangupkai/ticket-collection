@@ -36,10 +36,13 @@ fun AddTicketScreen(navController: NavController) {
     
     var trainNumber by remember { mutableStateOf("") }
     var date by remember { mutableStateOf("") }
+    var departureTime by remember { mutableStateOf("") }
     var departure by remember { mutableStateOf("") }
     var destination by remember { mutableStateOf("") }
     var price by remember { mutableStateOf("") }
+    var seatType by remember { mutableStateOf("") }
     var seatNumber by remember { mutableStateOf("") }
+    var gate by remember { mutableStateOf("") }
     var passengerName by remember { mutableStateOf("") }
     var idNumber by remember { mutableStateOf("") }
     var generatedImage by remember { mutableStateOf<Bitmap?>(null) }
@@ -95,6 +98,16 @@ fun AddTicketScreen(navController: NavController) {
         )
         
         OutlinedTextField(
+            value = departureTime,
+            onValueChange = { departureTime = it },
+            label = { Text("发车时间 (HH:MM)") },
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 16.dp),
+            singleLine = true
+        )
+        
+        OutlinedTextField(
             value = departure,
             onValueChange = { departure = it },
             label = { Text("出发地") },
@@ -126,9 +139,29 @@ fun AddTicketScreen(navController: NavController) {
         )
         
         OutlinedTextField(
+            value = seatType,
+            onValueChange = { seatType = it },
+            label = { Text("座席类型 (如：二等座、硬卧、软卧等)") },
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 16.dp),
+            singleLine = true
+        )
+        
+        OutlinedTextField(
             value = seatNumber,
             onValueChange = { seatNumber = it },
             label = { Text("座位号") },
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 16.dp),
+            singleLine = true
+        )
+        
+        OutlinedTextField(
+            value = gate,
+            onValueChange = { gate = it },
+            label = { Text("检票口") },
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(bottom = 16.dp),
@@ -164,16 +197,19 @@ fun AddTicketScreen(navController: NavController) {
                 onClick = {
                     if (trainNumber.isNotBlank() && date.isNotBlank() && 
                         departure.isNotBlank() && destination.isNotBlank() &&
-                        price.isNotBlank() && seatNumber.isNotBlank() &&
+                        price.isNotBlank() && seatType.isNotBlank() && seatNumber.isNotBlank() &&
                         passengerName.isNotBlank() && idNumber.isNotBlank()) {
                         
                         val ticket = Ticket(
                             trainNumber = trainNumber,
                             date = date,
+                            departureTime = departureTime,
                             departure = departure,
                             destination = destination,
                             price = price,
+                            seatType = seatType,
                             seatNumber = seatNumber,
+                            gate = gate,
                             passengerName = passengerName,
                             idNumber = idNumber
                         )
@@ -212,27 +248,32 @@ fun AddTicketScreen(navController: NavController) {
                     val ticket = Ticket(
                         trainNumber = trainNumber,
                         date = date,
+                        departureTime = departureTime,
                         departure = departure,
                         destination = destination,
                         price = price,
+                        seatType = seatType,
                         seatNumber = seatNumber,
+                        gate = gate,
                         passengerName = passengerName,
                         idNumber = idNumber
                     )
                     
-                    val imagePath = repository.saveTicketImage(ticket)
-                    val savedTicket = ticket.copy(imagePath = imagePath)
-                    repository.addTicket(savedTicket)
+                    // 直接保存到票夹，不需要保存图片文件
+                    repository.addTicket(ticket)
                     
                     Toast.makeText(context, "车票已保存到票夹", Toast.LENGTH_SHORT).show()
                     
                     // 清空表单
                     trainNumber = ""
                     date = ""
+                    departureTime = ""
                     departure = ""
                     destination = ""
                     price = ""
+                    seatType = ""
                     seatNumber = ""
+                    gate = ""
                     passengerName = ""
                     idNumber = ""
                     generatedImage = null
